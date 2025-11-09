@@ -48,7 +48,7 @@ app = Bottle()
 
 @route('/')
 def index():
-    return "hello world"
+    return redirect('/login')
 
 @route('/login', method='GET')
 def show_login():
