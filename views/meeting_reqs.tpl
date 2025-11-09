@@ -78,7 +78,7 @@
     </div>
 
     <!-- Hidden form that submits to backend -->
-    <form id="requestForm" method="post" action="/request" style="display:none">
+    <form id="requestForm" method="post" action="/student-request" style="display:none">
       <input name="mode" id="f_mode">
       <input name="subject" id="f_subject">
       <input name="urgency" id="f_urgency">

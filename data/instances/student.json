@@ -1,0 +1,33 @@
+{
+  "type": "Student",
+  "name": "Student",
+  "proficiency": {},
+  "meetings": [
+    {
+      "id": "fcd5b0fe",
+      "day": "Mon",
+      "start": "09:00",
+      "end": "09:20",
+      "title": "Meeting (20min)",
+      "with": "teacher",
+      "status": "Confirmed"
+    }
+  ],
+  "requests": [
+    {
+      "id": "fcd5b0fe",
+      "status": "Confirmed",
+      "when": "2025-11-09T23:43:48",
+      "student": "Student",
+      "teacher": "teacher",
+      "subject": "",
+      "urgency": "Normal",
+      "duration": "20",
+      "day": "Mon",
+      "start": "09:00",
+      "end": "09:20",
+      "reason": "test",
+      "mode": "teacher"
+    }
+  ]
+}

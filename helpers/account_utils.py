@@ -27,7 +27,8 @@ def parse_courses(raw):
     return [s.strip() for s in raw.split(",") if s.strip()]
 
 def save_current_account(acct: dict):
-    # Write atomically to avoid leaving a truncated file if the process is killed
+    """Save account to both current session and permanent storage"""
+    # Write current.json for session tracking
     tmp = ACCT_PATH + ".tmp"
     os.makedirs(os.path.dirname(ACCT_PATH), exist_ok=True)
     with open(tmp, "w", encoding="utf-8") as f:
@@ -35,20 +36,70 @@ def save_current_account(acct: dict):
     try:
         os.replace(tmp, ACCT_PATH)
     except Exception:
-        # Best-effort cleanup on failure
         if os.path.exists(tmp):
             try:
                 os.remove(tmp)
             except Exception:
                 pass
+            
+    # Save permanent user account if we have an email
+    if acct.get('email'):
+        save_user_account(acct)
+
+def save_user_account(acct: dict):
+    """Save permanent user account data"""
+    if not acct.get('email'):
+        return
+        
+    users_dir = os.path.join(ACCT_DIR, "users")
+    os.makedirs(users_dir, exist_ok=True)
+    
+    # Clean up any existing files with same email (different case)
+    target_email = acct['email'].lower()
+    for filename in os.listdir(users_dir):
+        if filename.lower().endswith('.json'):
+            if filename[:-5].lower() == target_email:
+                try:
+                    os.remove(os.path.join(users_dir, filename))
+                except Exception:
+                    pass
+    
+    # Save new user file
+    user_path = os.path.join(users_dir, f"{acct['email']}.json")
+    user_tmp = user_path + ".tmp"
+    with open(user_tmp, "w", encoding="utf-8") as f:
+        json.dump(acct, f, ensure_ascii=False, indent=2)
+    os.replace(user_tmp, user_path)
 
 def load_current_account() -> dict | None:
+    """Load current session account"""
     if not os.path.exists(ACCT_PATH):
         return None
     try:
         return json.load(open(ACCT_PATH, "r", encoding="utf-8"))
     except Exception:
         return None
+
+def load_user_account(email: str) -> dict | None:
+    """Load permanent user account data"""
+    if not email:
+        return None
+        
+    users_dir = os.path.join(ACCT_DIR, "users")
+    if not os.path.exists(users_dir):
+        return None
+        
+    # Try to find file matching email (case insensitive)
+    target = email.lower()
+    for filename in os.listdir(users_dir):
+        if filename.lower().endswith('.json'):
+            if filename[:-5].lower() == target:
+                try:
+                    path = os.path.join(users_dir, filename)
+                    return json.load(open(path, "r", encoding="utf-8"))
+                except Exception:
+                    return None
+    return None
 
 def load_account_instance(name: str):
     """Load a saved account instance JSON as a plain dict.

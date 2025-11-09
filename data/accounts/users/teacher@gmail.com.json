@@ -1,0 +1,15 @@
+{
+  "role": "Teacher",
+  "name": "teacher",
+  "email": "teacher@gmail.com",
+  "proficiency": {
+    "english": [
+      "English 110"
+    ]
+  },
+  "password": "t",
+  "title": "AHHHHH",
+  "subjects": [
+    "english"
+  ]
+}

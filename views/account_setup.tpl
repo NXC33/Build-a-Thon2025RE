@@ -73,12 +73,6 @@
                  style="width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);
                         background:rgba(2,6,23,.55);color:var(--text)">
         </label>
-        <label>Subjects (comma separated)
-          <input name="subjects" value="{{', '.join(preset.get('subjects', [])) if preset.get('subjects') else ''}}"
-                 placeholder="Physics, Calculus, Chemistry"
-                 style="width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);
-                        background:rgba(2,6,23,.55);color:var(--text)">
-        </label>
       </div>
 
       <!-- Proficiency builder -->
