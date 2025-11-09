@@ -86,6 +86,13 @@
       <div class="error">{{error}}</div>
     % end
 
+    % if defined('message') and message:
+      <div style="margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+                 color: #bbf7d0; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25);">
+        {{message}}
+      </div>
+    % end
+
     <label for="email">Email</label>
     <input id="email" name="email" type="email" placeholder="you@school.edu" autocomplete="username" required />
 

@@ -10,6 +10,13 @@
       <a class="btn secondary" href="/account">Back to Account</a>
     </div>
 
+    % if defined('ok') and ok:
+      <div style="margin-top:12px;padding:10px;border-radius:10px;background:rgba(34,197,94,.10);
+                  border:1px solid rgba(34,197,94,.25);color:#4ade80">
+        {{ok}}
+      </div>
+    % end
+
     % if defined('err') and err:
       <div style="margin-top:12px;padding:10px;border-radius:10px;background:rgba(239,68,68,.10);
                   border:1px solid rgba(239,68,68,.25);color:#ef4444">
@@ -63,6 +70,12 @@
       <div id="teacherBlock" style="display:{{'grid' if preset.get('role')=='Teacher' else 'none'}};grid-template-columns:1fr;gap:12px">
         <label>Title
           <input name="title" value="{{preset.get('title','')}}" placeholder='e.g., "Mr.", "Ms.", "Dr."'
+                 style="width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);
+                        background:rgba(2,6,23,.55);color:var(--text)">
+        </label>
+        <label>Subjects (comma separated)
+          <input name="subjects" value="{{', '.join(preset.get('subjects', [])) if preset.get('subjects') else ''}}"
+                 placeholder="Physics, Calculus, Chemistry"
                  style="width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);
                         background:rgba(2,6,23,.55);color:var(--text)">
         </label>

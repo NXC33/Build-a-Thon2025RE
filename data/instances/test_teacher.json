@@ -1,0 +1,13 @@
+{
+  "type": "Teacher",
+  "name": "Test Teacher",
+  "proficiency": {
+    "Math": [
+      "Calculus 1",
+      "Calculus 2"
+    ]
+  },
+  "meetings": [],
+  "requests": [],
+  "title": "Mr"
+}

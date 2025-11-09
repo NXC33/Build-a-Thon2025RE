@@ -1,4 +1,4 @@
-from meet import Meeting
+from .meet import Meeting
 from datetime import datetime
 
 class Account:
@@ -82,13 +82,6 @@ class Teacher(Account):
 
 
 
-timmy = Student("Timmy Theodore", {"Math": ("Pre-calc")}, "Freshman")
-james = Teacher("James Smith", {"Math": ("Pre-calc", "calc1", "calc2", "multivariable")}, "Mr.")
-
-#!!!!!!!!!!!!!!!!!!!test!!!!!!!!!!!!!!!!!!!!!!
-a = datetime.datetime.now()
-
-print(a)
-
-# print(timmy.grade, timmy.name)
-# print(james.title, james.name)
+# Example instances — placed as comments to avoid side-effects during import
+# timmy = Student(name="Timmy Theodore", courses=["Algebra"], proficiency={"Math": ("Pre-calc",)}, grade="Freshman")
+# james = Teacher(name="James Smith", proficiency={"Math": ("Pre-calc", "calc1", "calc2", "multivariable")}, title="Mr.")

@@ -147,7 +147,11 @@
       <nav class="nav">
         <a href="/home">Home</a>
         <a href="/availability">Availability</a>
-        <a href="/request">Request Meeting</a>
+        % if role == 'Teacher':
+          <a href="/request">Meeting Requests</a>
+        % else:
+          <a href="/request">Request Meeting</a>
+        % end
         <a href="/meetings">My Meetings</a>
         <a href="/account-setup">Account Setup</a>
         <a href="/help">Help</a>

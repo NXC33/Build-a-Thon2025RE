@@ -1,5 +1,5 @@
-from bottle import Bottle, route, run, template, request, redirect, response #type: ignore
-import json, os, uuid, datetime
+from bottle import Bottle, route, run, template, request, redirect, response, HTTPResponse #type: ignore
+import json, os, uuid, datetime, sys
 from helpers.storage import load_availability, save_availability
 
 DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
@@ -31,6 +31,7 @@ DEFAULT_ACCOUNT = {
 def load_account():
     if not os.path.exists(ACCOUNT_PATH):
         return DEFAULT_ACCOUNT.copy()
+    success = False
     try:
         with open(ACCOUNT_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -56,8 +57,12 @@ def get_theme():
     return t
 
 def render(tpl, **kwargs):
-    kwargs.setdefault('user_name', 'Nicolas')
+    # Load current account for user info
+    acct = load_current_account() or {}
+    # Use signed-in user's name from cookie/account, else fall back to default
+    kwargs.setdefault('user_name', acct.get('name') or request.get_cookie('user') or 'Nicolas')
     kwargs.setdefault('theme', request.get_cookie('theme') or 'dark')
+    kwargs.setdefault('role', acct.get('role', 'Student'))
     return template(tpl, **kwargs)
 
 
@@ -68,55 +73,167 @@ def index():
     return "hello world"
 @route('/login', method='GET')
 def show_login():
-    return render("login")
+    message = request.query.get('message')
+    return render("login", message=message)
 @route('/login', method=["POST"])
 def login_post():
-    # ignore authentication for now
-    # just go to home
-    return redirect('/home')
+    # Simple authentication: check against saved account (data/accounts/current.json)
+    email = (request.forms.get('email') or '').strip()
+    pw = request.forms.get('password') or ''
+
+    acct = load_current_account()
+    if not acct:
+        return render('login', error='No account exists. Please sign up.')
+
+    # Match email and password (plain-text for hackathon simplicity)
+    if email == acct.get('email') and pw == acct.get('password'):
+        # successful login → set cookie and go to home
+        response.set_cookie('user', acct.get('name', 'User'), path='/')
+        return redirect('/home')
+
+    # failed authentication
+    return render('login', error='Invalid email or password.')
 @route('/signup', method='GET')
 def signup_get():
     return render('signup')
 @route('/signup', method=["POST"])
 def signup_post():
-    # ignore storing account for now
-    # after submitting form → go to login
-    return redirect("/login")
+    name = request.forms.get("name", "").strip()
+    email = request.forms.get("email", "").strip()
+    role = request.forms.get("role", "student").strip()
+    password = request.forms.get("password", "").strip()
+    
+    if not name or not email or not password:
+        return render('signup', error="All fields are required")
+    
+    try:
+        # Create initial account data
+        account_data = {
+            "name": name,
+            "email": email,
+            "role": role,
+            "password": password,  # In production, this should be hashed
+            "proficiency": {}  # Will be set in account setup
+        }
+
+        save_current_account(account_data)
+        
+        # Also create initial instance file
+        instance_data = {
+            "type": role,
+            "name": name,
+            "proficiency": {},
+            "meetings": [],
+            "requests": []
+        }
+        instance_dir = os.path.join("data", "instances")
+        os.makedirs(instance_dir, exist_ok=True)
+        instance_path = os.path.join(instance_dir, f"{name.lower().replace(' ', '_')}.json")
+        tmp_path = instance_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(instance_data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, instance_path)
+        
+        # Account creation complete - send to login
+        return redirect("/login?message=Account+created+successfully")
+
+    except Exception as e:
+        # bottle.redirect raises HTTPResponse which we should re-raise so the framework can handle it
+        try:
+            from bottle import HTTPResponse as _HTTPResponse
+        except Exception:
+            _HTTPResponse = None
+        if _HTTPResponse and isinstance(e, _HTTPResponse):
+            raise
+
+        import traceback, sys
+        tb = traceback.format_exc()
+        print("Signup error:\n", tb, file=sys.stderr)
+        return render('signup', error="Internal error while creating account. Check server logs.")
 @route('/home')
 def home():
-    meetings = [
-        {"day":"Mon","start":"10:30","end":"11:30","title":"Test review","with":"Ms. Rivera","status":"Confirmed"},
-        {"day":"Tue","start":"14:15","end":"14:30","title":"Project help","with":"Mr. Lee","status":"Pending"},
-        {"day":"Wed","start":"09:00","end":"10:00","title":"Counselor check-in","with":"Dr. Adams","status":"Confirmed"},
-    ]
+    # Get real meetings from instance file
+    acct = load_current_account() or {}
+    name = acct.get("name")
+    meetings = []
+    if name:
+        # Look in instances directory
+        inst_path = os.path.join("data", "instances", f"{name.lower().replace(' ', '_')}.json")
+        if os.path.exists(inst_path):
+            try:
+                with open(inst_path, "r", encoding="utf-8") as f:
+                    inst = json.load(f)
+                    meetings = inst.get("meetings", []) or []
+            except Exception:
+                meetings = []
+
     return render("home",
         days=DAYS, start_hour=START_HOUR, end_hour=END_HOUR,
-        meetings=meetings, day_to_col=day_to_col, row_for=row_for, row_span=row_span)
+        meetings=meetings, day_to_col=day_to_col, row_for=row_for, row_span=row_span,
+        message=request.query.get('message'))
 
 @route('/availability', method='GET')
 def availability_get():
-    user = current_user()
+    # Load availability for the current account
+    acct = load_current_account()
+    if not acct:
+        return redirect("/login")
+        
+    user = acct.get("name", "demo")
     avail_ranges = load_availability(user, DAYS)
     return render('availability',
                     ok=request.query.get('saved') and "Availability saved.",
                     days=DAYS, start_hour=START_HOUR, end_hour=END_HOUR,
-                    avail_ranges=avail_ranges)
+                    avail_ranges=avail_ranges,
+                    user_name=user)
 
 @route('/availability', method='POST')
 def availability_post():
-    user = current_user()
+    # Require a logged-in account
+    acct = load_current_account()
+    if not acct:
+        return redirect("/login")
+        
     raw = request.forms.get('avail_json') or "{}"
     try:
         data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("Expected object")
     except Exception:
-        data = {d: [] for d in DAYS}
+        return render('availability',
+                    ok=None,
+                    err="Invalid availability data received.",
+                    days=DAYS, start_hour=START_HOUR, end_hour=END_HOUR,
+                    avail_ranges={d: [] for d in DAYS},
+                    user_name=acct.get("name", "User"))
+
     # Optional: normalize to ensure all days exist
     data = {d: data.get(d, []) for d in DAYS}
-    save_availability(user, data)
-    return redirect("/availability?saved=1")
+    
+    try:
+        save_availability(acct.get("name", "demo"), data)
+        return redirect("/availability?saved=1")
+    except Exception as e:
+        # Allow Bottle's redirect response to pass through
+        if isinstance(e, HTTPResponse):
+            raise
+        # Log full traceback for debugging
+        import traceback, sys
+        tb = traceback.format_exc()
+        print("Availability save error:\n", tb, file=sys.stderr)
+        return render('availability',
+                    ok=None,
+                    err=f"Failed to save: {str(e)}",
+                    days=DAYS, start_hour=START_HOUR, end_hour=END_HOUR,
+                    avail_ranges=data,
+                    user_name=acct.get("name", "User"))
 @route("/account", method=["GET", "POST"])
 def account_page():
-    acc = load_account()
+    # Use the account stored by helpers/account_utils (data/accounts/current.json)
+    acc = load_current_account()
+    if not acc:
+        # No account yet — send user to signup
+        return redirect('/signup')
 
     if request.method == "POST":
         action = request.forms.get("action")
@@ -124,7 +241,10 @@ def account_page():
         if action == "profile":
             acc["name"] = request.forms.get("name", "").strip()
             acc["email"] = request.forms.get("email", "").strip()
-            save_account(acc)
+            try:
+                save_current_account(acc)
+            except Exception as e:
+                return render("account", user=acc, ok=None, err=f"Failed to save: {e}", user_name=acc.get("name","User"))
             return redirect("/account?ok=Saved")
 
         elif action == "password":
@@ -136,7 +256,10 @@ def account_page():
                                 err="Password must be at least 4 characters.",
                                 user_name=acc.get("name","User"))
             acc["password"] = pw
-            save_account(acc)
+            try:
+                save_current_account(acc)
+            except Exception as e:
+                return render("account", user=acc, ok=None, err=f"Failed to save: {e}", user_name=acc.get("name","User"))
             return redirect("/account?ok=Password+updated")
 
     return render("account",
@@ -183,50 +306,177 @@ def all_subjects():
 @route("/request", method=["GET","POST"])
 def request_page():
     if request.method == "GET":
-        AVAIL_PATH = os.path.join("data","availability","demo.json")
-        user_ranges = load_availability(AVAIL_PATH, DAYS)
-        return render(
-            "meeting_reqs",
-            days=DAYS,
-            start_hour=START_HOUR,
-            end_hour=END_HOUR,
-            teachers=TEACHERS,
-            subjects=all_subjects(),
-            user_ranges=user_ranges,       # <-- raw ranges for “By My Availability”
-            user_name="User"
-        )
+        # Load account to check role
+        acct = load_current_account() or {}
+        user = current_user()
+        user_name = acct.get("name") or user
+        role = acct.get("role", "Student")
+        
+        if role == "Teacher":
+            # Load teacher's meetings with student_request=True
+            inst_path = os.path.join("data", "instances", f"{user_name.lower().replace(' ', '_')}.json")
+            meetings = []
+            if os.path.exists(inst_path):
+                try:
+                    with open(inst_path, "r", encoding="utf-8") as f:
+                        inst = json.load(f)
+                        meetings = inst.get("meetings", []) or []
+                except Exception:
+                    meetings = []
+            
+            return render(
+                "meeting_requests",
+                meetings=meetings,
+                user_name=user_name,
+                role=role
+            )
+        else:
+            # Student view - show meeting request form
+            user_ranges = load_availability(user, DAYS)
+            return render(
+                "meeting_reqs",
+                days=DAYS,
+                start_hour=START_HOUR,
+                end_hour=END_HOUR,
+                teachers=TEACHERS,
+                subjects=all_subjects(),
+                user_ranges=user_ranges,       # <-- raw ranges for "By My Availability"
+                user_name=user_name,
+                role=role
+            )
 
-    # POST: collect request (same as before)
+    # POST: create a new meeting request
+    acct = load_current_account()
+    if not acct:
+        return redirect("/login")
+    
+    # Build request object
+    request_id = str(uuid.uuid4())[:8]  # Generate unique ID
     payload = {
-        "mode": request.forms.get("mode"),
+        "id": request_id,
+        "status": "Pending",
+        "when": datetime.datetime.now().isoformat(timespec="seconds"),
+        "student": acct.get("name", "Unknown Student"),
+        "teacher": request.forms.get("teacher",""),
         "subject": request.forms.get("subject",""),
         "urgency": request.forms.get("urgency","Normal"),
         "duration": request.forms.get("duration","20"),
-        "teacher": request.forms.get("teacher",""),
         "day": request.forms.get("day",""),
         "start": request.forms.get("start",""),
         "end": request.forms.get("end",""),
         "reason": request.forms.get("reason",""),
+        "mode": request.forms.get("mode"),  # How it was requested (by teacher/availability)
     }
-    print("REQUESTED MEETING:", json.dumps(payload, indent=2))
-    os.makedirs("data", exist_ok=True)
-    path="data/requests.json"
+    
+    # Load student's instance file
+    student_file = os.path.join("data", "instances", f"{acct.get('name','').lower().replace(' ', '_')}.json")
+    if not os.path.exists(student_file):
+        return render("meeting_reqs",
+                    err="Account not properly set up. Please complete account setup first.",
+                    days=DAYS,
+                    start_hour=START_HOUR,
+                    end_hour=END_HOUR,
+                    teachers=TEACHERS,
+                    subjects=all_subjects(),
+                    user_ranges={},
+                    user_name=acct.get("name", "User"))
+    
     try:
-        arr=json.load(open(path,"r",encoding="utf-8"))
-        if not isinstance(arr,list): arr=[]
-    except Exception:
-        arr=[]
-    arr.append(payload)
-    json.dump(arr, open(path,"w",encoding="utf-8"), ensure_ascii=False, indent=2)
-    return redirect("/meetings")
+        # Load existing instance data
+        try:
+            with open(student_file, "r", encoding="utf-8") as f:
+                instance_data = json.load(f)
+        except json.JSONDecodeError:
+            # If file exists but is invalid JSON, create new data
+            instance_data = {"meetings": [], "requests": []}
+            
+        # Add request to both requests and meetings arrays
+        instance_data.setdefault("requests", []).append(payload)
+        # Create meeting title - include subject (or default to "Meeting") and duration
+        meeting_title = "Meeting" if not payload["subject"] else payload["subject"]
+        instance_data.setdefault("meetings", []).append({
+            "id": request_id,
+            "day": payload["day"],
+            "start": payload["start"],
+            "end": payload["end"],
+            "title": f"{meeting_title} ({payload['duration']}min)",
+            "with": payload["teacher"],
+            "status": "Pending"
+        })
+        
+        try:
+            # Save atomically
+            tmp_path = student_file + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(instance_data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, student_file)
+            
+            # Also save to teacher's instance file if it exists
+            teacher_file = os.path.join("data", "instances", f"{payload['teacher'].lower().replace(' ', '_')}.json")
+            if os.path.exists(teacher_file):
+                try:
+                    with open(teacher_file, "r", encoding="utf-8") as f:
+                        teacher_data = json.load(f)
+                    # Same title logic for teacher's view
+                    meeting_title = "Meeting" if not payload["subject"] else payload["subject"]
+                    teacher_data.setdefault("meetings", []).append({
+                        "id": request_id,
+                        "day": payload["day"],
+                        "start": payload["start"],
+                        "end": payload["end"],
+                        "title": f"{meeting_title} ({payload['duration']}min)",
+                        "with": payload["student"],
+                        "status": "Pending",
+                        "student_request": True  # Flag to show this came from student
+                    })
+                    tmp_path = teacher_file + ".tmp"
+                    with open(tmp_path, "w", encoding="utf-8") as f:
+                        json.dump(teacher_data, f, ensure_ascii=False, indent=2)
+                    os.replace(tmp_path, teacher_file)
+                except Exception:
+                    # Non-fatal if we can't update teacher's file
+                    pass
+
+            return redirect("/meetings")
+        except Exception as e:
+            print(f"Error saving meeting request: {e}", file=sys.stderr)
+            return render("meeting_reqs",
+                        err=f"Failed to save meeting request: {str(e)}",
+                        days=DAYS,
+                        start_hour=START_HOUR,
+                        end_hour=END_HOUR,
+                        teachers=TEACHERS,
+                        subjects=all_subjects(),
+                        user_ranges=load_availability(acct.get("name", "demo"), DAYS),
+                        user_name=acct.get("name", "User"))
+        
+    except Exception as e:
+        print("Error saving meeting request:", str(e), file=sys.stderr)
+        return render("meeting_reqs",
+                    err=f"Failed to save meeting request: {str(e)}",
+                    days=DAYS,
+                    start_hour=START_HOUR,
+                    end_hour=END_HOUR,
+                    teachers=TEACHERS,
+                    subjects=all_subjects(),
+                    user_ranges=load_availability(acct.get("name", "demo"), DAYS),
+                    user_name=acct.get("name", "User"))
 @route("/meetings")
 def meetings_page():
-    # Example mock data — replace with real meetings later
-    meetings = [
-        {"day":"Mon","start":"10:30","end":"10:50","title":"Test review","with":"Ms. Rivera","status":"Confirmed"},
-        {"day":"Tue","start":"14:15","end":"14:45","title":"Project help","with":"Mr. Lee","status":"Pending"},
-        {"day":"Wed","start":"09:00","end":"09:30","title":"Check-in","with":"Coach Diaz","status":"Cancelled"},
-    ]
+    # Load meetings from instance file
+    acct = load_current_account() or {}
+    name = acct.get("name")
+    meetings = []
+    if name:
+        # Look in instances directory
+        inst_path = os.path.join("data", "instances", f"{name.lower().replace(' ', '_')}.json")
+        if os.path.exists(inst_path):
+            try:
+                with open(inst_path, "r", encoding="utf-8") as f:
+                    inst = json.load(f)
+                    meetings = inst.get("meetings", []) or []
+            except Exception:
+                meetings = []
 
     return render(
         "meetings",
@@ -234,8 +484,73 @@ def meetings_page():
         start_hour=START_HOUR,
         end_hour=END_HOUR,
         meetings=meetings,
-        user_name=load_account().get("name","User")
+        user_name=acct.get("name","User")
     )
+
+@route('/meetings/respond', method='POST')
+def meeting_respond():
+    """Handle accepting/rejecting meeting requests"""
+    acct = load_current_account()
+    if not acct:
+        return redirect("/login")
+    
+    meeting_id = request.forms.get("meeting_id")
+    response = request.forms.get("response")  # 'accept' or 'reject'
+    
+    if not meeting_id or response not in ('accept', 'reject'):
+        return redirect("/meetings")
+    
+    # Update teacher's instance
+    teacher_file = os.path.join("data", "instances", f"{acct.get('name','').lower().replace(' ', '_')}.json")
+    if os.path.exists(teacher_file):
+        try:
+            with open(teacher_file, "r", encoding="utf-8") as f:
+                teacher_data = json.load(f)
+            
+            # Find and update the meeting
+            found_meeting = None
+            for m in teacher_data.get("meetings", []):
+                if m.get("id") == meeting_id:
+                    m["status"] = "Confirmed" if response == "accept" else "Cancelled"
+                    found_meeting = m
+                    break
+            
+            if found_meeting:
+                # Save teacher data
+                tmp = teacher_file + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(teacher_data, f, ensure_ascii=False, indent=2)
+                os.replace(tmp, teacher_file)
+                
+                # Update student's instance too
+                student_name = found_meeting.get("with", "").lower().replace(" ", "_")
+                student_file = os.path.join("data", "instances", f"{student_name}.json")
+                if os.path.exists(student_file):
+                    try:
+                        with open(student_file, "r", encoding="utf-8") as f:
+                            student_data = json.load(f)
+                        
+                        # Update both meetings and requests arrays
+                        for m in student_data.get("meetings", []):
+                            if m.get("id") == meeting_id:
+                                m["status"] = "Confirmed" if response == "accept" else "Cancelled"
+                        
+                        for r in student_data.get("requests", []):
+                            if r.get("id") == meeting_id:
+                                r["status"] = "Confirmed" if response == "accept" else "Cancelled"
+                        
+                        # Save student data
+                        tmp = student_file + ".tmp"
+                        with open(tmp, "w", encoding="utf-8") as f:
+                            json.dump(student_data, f, ensure_ascii=False, indent=2)
+                        os.replace(tmp, student_file)
+                    except Exception:
+                        pass  # Non-fatal if student update fails
+        
+        except Exception as e:
+            print(f"Error updating meeting {meeting_id}: {str(e)}", file=sys.stderr)
+    
+    return redirect("/meetings")
 
 @route('/settings', method='GET')
 def settings_get():
@@ -266,15 +581,12 @@ def _save_tickets(arr):
 
 @route("/help", method=["GET", "POST"])
 def help_page():
-    # If you have load_account(), use it to prefill name/email; else fallback.
-    try:
-        acc = load_account()  # optional if you already have this
-        user_name = acc.get("name", "User")
-        user_email = acc.get("email", "")
-    except:
-        user_name, user_email = "User", ""
+    # Prefill name/email from the saved current account when available
+    acct = load_current_account() or {}
+    user_name = acct.get("name", "User")
+    user_email = acct.get("email", "")
     if request.method == "GET":
-        return template("help",
+        return render("help",
                         ok=request.query.get("ok"),
                         err=None,
                         pre_name=user_name,
@@ -290,7 +602,7 @@ def help_page():
     description = (request.forms.get("description") or "").strip()
 
     if not subject or not description:
-        return template("help",
+        return render("help",
                         ok=None,
                         err="Please include both a subject and a description.",
                         pre_name=name or user_name,
@@ -313,22 +625,32 @@ def help_page():
     return redirect("/help?ok=Ticket+submitted")
 @route("/account-setup", method=["GET", "POST"])
 def account_setup():
+    # Load current account - this is for editing account settings only
     existing = load_current_account() or {}
+    if not existing:
+        return redirect("/signup")
     user_name = existing.get("name") or "User"
 
     if request.method == "GET":
-        return template("account_setup",
+        return render("account_setup",
                         preset=existing,
                         user_name=user_name)
 
     # POST: read form
+    try:
+        with open(os.path.join(os.path.dirname(__file__), 'acct_debug.log'), 'a', encoding='utf-8') as _dbg:
+            _dbg.write('account_setup: POST entered\n')
+    except Exception:
+        pass
     role  = (request.forms.get("role")  or "Student").strip()
     name  = (request.forms.get("name")  or "").strip()
     email = (request.forms.get("email") or "").strip()
+    subjects_raw = (request.forms.get("subjects") or "").strip()
+    subjects = [s.strip() for s in subjects_raw.split(",") if s.strip()]
 
     if not name:
         # re-render with error
-        return template("account_setup",
+        return render("account_setup",
                         preset=dict(request.forms),
                         user_name=user_name,
                         err="Name is required.")
@@ -346,6 +668,7 @@ def account_setup():
         "name": name,
         "email": email,
         "proficiency": proficiency,
+        "subjects": subjects,
     }
 
     if role == "Student":
@@ -354,19 +677,82 @@ def account_setup():
     else:
         account_obj["title"] = (request.forms.get("title") or "").strip()
 
-    save_current_account(account_obj)
+    # Persist account data and a serialized instance without importing Backend classes
+    try:
+        # Save raw account object
+        save_current_account(account_obj)
 
-    # (optional) if you maintain a minimal account store for avatar/name
-    # try:
-    #     from helpers.storage import load_account, save_account
-    #     acc = load_account()
-    #     acc["name"] = name
-    #     acc["email"] = email
-    #     save_account(acc)
-    # except Exception:
-    #     pass
+        # Build instance data directly (avoid importing Backend to prevent circular/import-time side-effects)
+        instance_data = {
+            "type": role,
+            "name": name,
+            "proficiency": proficiency,
+            "meetings": [],
+            "requests": []
+        }
+        if role == "Student":
+            instance_data.update({
+                "courses": account_obj.get("courses", []),
+                "grade": account_obj.get("grade", "")
+            })
+        else:
+            instance_data.update({
+                "title": account_obj.get("title", "")
+            })
+        if subjects:
+            instance_data["subjects"] = subjects
 
-    return redirect("/account")
+        # Write atomically to avoid truncated JSON on failure
+        instance_dir = os.path.join("data", "instances")
+        os.makedirs(instance_dir, exist_ok=True)
+        instance_path = os.path.join(instance_dir, f"{name.lower().replace(' ', '_')}.json")
+        tmp_path = instance_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(instance_data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, instance_path)
+
+        acct_instance_dir = os.path.join("data", "accounts", "instances")
+        os.makedirs(acct_instance_dir, exist_ok=True)
+        acct_instance_path = os.path.join(acct_instance_dir, f"{name.lower().replace(' ', '_')}.json")
+        tmp2 = acct_instance_path + ".tmp"
+        try:
+            with open(tmp2, "w", encoding="utf-8") as f:
+                json.dump(instance_data, f, indent=2, ensure_ascii=False)
+            os.replace(tmp2, acct_instance_path)
+        except Exception:
+            # non-fatal
+            if os.path.exists(tmp2):
+                try:
+                    os.remove(tmp2)
+                except Exception:
+                    pass
+
+        success = True
+        
+    except Exception as e:
+        # If Bottle's control-flow HTTPResponse (raised by redirect) bubbles up, re-raise it
+        try:
+            from bottle import HTTPResponse as _HTTPResponse
+        except Exception:
+            _HTTPResponse = None
+        if _HTTPResponse and isinstance(e, _HTTPResponse):
+            raise
+
+        # Log full traceback to server log for debugging
+        import traceback, sys
+        tb = traceback.format_exc()
+        print("Account setup exception:\n", tb, file=sys.stderr)
+        return render("account_setup",
+                    preset=account_obj,
+                    user_name=user_name,
+                    err=f"Error creating account: {str(e)}")
+
+    # after try/except: if success, stay on account setup page with success message
+    if success:
+        return render("account_setup",
+                    preset=account_obj,
+                    user_name=user_name,
+                    ok="Changes saved successfully")
 
 
 run(host='localhost', port=8080)

@@ -1,0 +1,8 @@
+HTTP/1.0 303 See Other
+Date: Sun, 09 Nov 2025 19:43:01 GMT
+Server: WSGIServer/0.2 CPython/3.12.1
+Location: http://localhost:8080/login?message=Account+created+successfully
+Content-Length: 0
+Content-Type: text/html; charset=UTF-8
+Set-Cookie: setup_user="test_teacher@example.com"; Path=/
+

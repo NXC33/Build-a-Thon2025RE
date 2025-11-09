@@ -1,0 +1,31 @@
+nohup: ignoring input
+Bottle v0.13.4 server starting up (using WSGIRefServer())...
+Listening on http://localhost:8080/
+Hit Ctrl-C to quit.
+
+127.0.0.1 - - [09/Nov/2025 19:43:01] "POST /signup HTTP/1.1" 303 0
+127.0.0.1 - - [09/Nov/2025 19:43:16] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:44:11] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:46:01] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:47:05] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:47:41] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:48:23] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:49:51] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 19:50:43] "POST /account-setup HTTP/1.1" 200 12068
+127.0.0.1 - - [09/Nov/2025 20:05:51] "GET / HTTP/1.1" 200 11
+127.0.0.1 - - [09/Nov/2025 20:05:55] "GET /login HTTP/1.1" 200 4139
+127.0.0.1 - - [09/Nov/2025 20:06:00] "POST /login HTTP/1.1" 200 4197
+127.0.0.1 - - [09/Nov/2025 20:06:02] "GET /signup HTTP/1.1" 200 2370
+127.0.0.1 - - [09/Nov/2025 20:06:07] "POST /signup HTTP/1.1" 303 0
+127.0.0.1 - - [09/Nov/2025 20:06:07] "GET /login?message=Account+created+successfully HTTP/1.1" 200 4389
+127.0.0.1 - - [09/Nov/2025 20:06:10] "POST /login HTTP/1.1" 200 4197
+127.0.0.1 - - [09/Nov/2025 20:06:13] "POST /login HTTP/1.1" 303 0
+127.0.0.1 - - [09/Nov/2025 20:06:13] "GET /home HTTP/1.1" 200 25039
+127.0.0.1 - - [09/Nov/2025 20:06:16] "GET /home HTTP/1.1" 200 25039
+127.0.0.1 - - [09/Nov/2025 20:06:16] "GET /availability HTTP/1.1" 200 39821
+127.0.0.1 - - [09/Nov/2025 20:06:17] "GET /meetings HTTP/1.1" 200 25225
+127.0.0.1 - - [09/Nov/2025 20:06:18] "GET /account-setup HTTP/1.1" 200 11788
+127.0.0.1 - - [09/Nov/2025 20:06:27] "POST /account-setup HTTP/1.1" 200 12069
+127.0.0.1 - - [09/Nov/2025 20:06:34] "POST /account-setup HTTP/1.1" 200 12078
+127.0.0.1 - - [09/Nov/2025 20:06:47] "GET /home HTTP/1.1" 200 25039
+127.0.0.1 - - [09/Nov/2025 20:06:48] "GET /request HTTP/1.1" 200 20076

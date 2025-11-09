@@ -1,0 +1,18 @@
+{
+  "type": "Student",
+  "name": "Nicolas Castillo",
+  "proficiency": {
+    "english": [
+      "English 110"
+    ],
+    "science": [
+      "chemistry"
+    ]
+  },
+  "meetings": [],
+  "requests": [],
+  "courses": [
+    "Chemistry"
+  ],
+  "grade": "Freshman"
+}

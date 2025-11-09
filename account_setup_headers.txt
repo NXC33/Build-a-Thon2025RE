@@ -1,0 +1,7 @@
+HTTP/1.0 200 OK
+Date: Sun, 09 Nov 2025 19:48:23 GMT
+Server: WSGIServer/0.2 CPython/3.12.1
+Content-Length: 12068
+Content-Type: text/html; charset=UTF-8
+Set-Cookie: setup_user=""; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=-1; Path=/
+

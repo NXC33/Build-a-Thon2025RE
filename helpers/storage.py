@@ -1,5 +1,22 @@
 import os, json, re
 
+def atomic_json_write(path: str, data: dict) -> None:
+    """Write JSON data atomically using a temporary file and os.replace."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        # Best-effort cleanup if write fails
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except Exception:
+                pass
+        raise
+
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "availability")
 os.makedirs(BASE_DIR, exist_ok=True)
 
@@ -32,5 +49,4 @@ def load_availability(user: str, days: list[str]) -> dict:
 def save_availability(user: str, data: dict) -> None:
     """Persist availability JSON exactly as received (already normalized by the UI)."""
     path = os.path.join(BASE_DIR, f"{_safe_user(user)}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    atomic_json_write(path, data)

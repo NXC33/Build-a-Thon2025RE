@@ -1,4 +1,7 @@
 % include("shell_top", title="Home")
+% if defined('message') and message:
+  <div class="banner success">{{message}}</div>
+% end
   <!-- Row 1: Calendar (left) + Upcoming (right) -->
 <section class="row row--calendar-left">
   <style>

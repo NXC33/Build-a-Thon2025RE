@@ -1,4 +1,3 @@
-from people import Account, Student, Teacher, timmy, james
 from datetime import datetime
 
 """
@@ -68,6 +67,7 @@ title: str
 sender: object
 reciever: object=None
 status: bool=False
-timmy.create_meeting()
+# Example usage (kept as comments to avoid running on import):
+# timmy.create_meeting()
 # timmy creates a meeting for calculus help with james
 # james then accepts the meeting

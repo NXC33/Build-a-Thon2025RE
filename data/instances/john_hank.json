@@ -1,0 +1,57 @@
+{
+  "type": "student",
+  "name": "John Hank",
+  "proficiency": {},
+  "meetings": [
+    {
+      "id": "8e8e33fc",
+      "day": "Tue",
+      "start": "09:30",
+      "end": "09:50",
+      "title": "Meeting (20min)",
+      "with": "Ms. Rivera",
+      "status": "Pending"
+    },
+    {
+      "id": "df4e7547",
+      "day": "Mon",
+      "start": "10:30",
+      "end": "10:50",
+      "title": "Meeting (20min)",
+      "with": "Ms. Rivera",
+      "status": "Pending"
+    }
+  ],
+  "requests": [
+    {
+      "id": "8e8e33fc",
+      "status": "Pending",
+      "when": "2025-11-09T20:56:29",
+      "student": "John Hank",
+      "teacher": "Ms. Rivera",
+      "subject": "",
+      "urgency": "Normal",
+      "duration": "20",
+      "day": "Tue",
+      "start": "09:30",
+      "end": "09:50",
+      "reason": "",
+      "mode": "availability"
+    },
+    {
+      "id": "df4e7547",
+      "status": "Pending",
+      "when": "2025-11-09T20:56:40",
+      "student": "John Hank",
+      "teacher": "Ms. Rivera",
+      "subject": "",
+      "urgency": "Normal",
+      "duration": "20",
+      "day": "Mon",
+      "start": "10:30",
+      "end": "10:50",
+      "reason": "ssdfs",
+      "mode": "teacher"
+    }
+  ]
+}

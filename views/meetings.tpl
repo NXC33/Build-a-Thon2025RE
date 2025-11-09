@@ -144,4 +144,65 @@
   })();
 </script>
 
+<!-- Pending Requests Section -->
+<section class="card" style="grid-column: 1 / -1; margin-top: 24px;">
+  <h3 style="margin:0 0 12px">Pending Requests</h3>
+  
+  % pending = [m for m in meetings if m.get('status','').lower() == 'pending']
+  % if not pending:
+    <div class="muted">No pending meeting requests.</div>
+  % else:
+    <div style="display:grid; gap:12px;">
+      % for m in pending:
+        <div class="card" style="background:rgba(2,6,23,.35); display:grid; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:start;">
+            <div>
+              <div><strong>{{m.get('title', 'Meeting')}}</strong></div>
+              <div class="muted">With {{m.get('with', '')}} • {{m.get('day', '')}} {{m.get('start', '')}}–{{m.get('end', '')}}</div>
+              % if m.get('reason'):
+                <div class="muted" style="margin-top:4px">Reason: {{m.get('reason')}}</div>
+              % end
+            </div>
+            
+            % if m.get('student_request'):
+              <!-- Teacher view -->
+              <div style="display:flex; gap:8px;">
+                <form method="post" action="/meetings/respond" style="display:inline">
+                  <input type="hidden" name="meeting_id" value="{{m.get('id', '')}}">
+                  <input type="hidden" name="response" value="accept">
+                  <button class="btn">Accept</button>
+                </form>
+                <form method="post" action="/meetings/respond" style="display:inline">
+                  <input type="hidden" name="meeting_id" value="{{m.get('id', '')}}">
+                  <input type="hidden" name="response" value="reject">
+                  <button class="btn secondary">Reject</button>
+                </form>
+              </div>
+            % else:
+              <!-- Student view -->
+              <div class="pill warning">Awaiting Response</div>
+            % end
+          </div>
+          
+          % if m.get('urgency'):
+            <div style="display:flex; gap:8px; align-items:center">
+              <div class="pill {{m.get('urgency','Normal').lower()}}">{{m.get('urgency', 'Normal')}} Priority</div>
+              % if m.get('subject'):
+                <div class="pill">{{m.get('subject')}}</div>
+              % end
+            </div>
+          % end
+        </div>
+      % end
+    </div>
+  % end
+</section>
+
+<style>
+.pill.warning { background: #ca8a04; }
+.pill.high { background: #dc2626; }
+.pill.normal { background: #2563eb; }
+.pill.low { background: #059669; }
+</style>
+
 % include("shell_bottom")

@@ -11,6 +11,13 @@
     </div>
   % end
 
+  % if defined('err') and err:
+    <div style="margin-top:12px;padding:10px 12px;border-radius:10px;
+         background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);color:#ef4444;font-size:13px;">
+      {{err}}
+    </div>
+  % end
+
   <style>
     :root{
       --timecol:72px;    /* time gutter width */
