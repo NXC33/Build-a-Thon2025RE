@@ -1,4 +1,4 @@
-AutoMeet is a lightweight scheduling tool that automatically connects students and teachers based on availability, subject needs, and proficiency. 
+MeetMatch is a lightweight scheduling tool that automatically connects students and teachers based on availability, subject needs, and proficiency. 
 It simplifies booking academic support by avoiding email coordination and calendar conflicts.
 
 Built for the 2025 Build-A-Thon.
